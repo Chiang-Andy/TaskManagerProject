@@ -1,67 +1,46 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 const SectionContext = createContext();
 
-const initialState = {
-  sections: [],
-};
-
-const sectionReducer = (state, action) => {
-  switch (action.type) {
-    case 'ADD_SECTION':
-      return {
-        ...state,
-        sections: [...state.sections, action.payload],
-      };
-    case 'DELETE_SECTION':
-      return {
-        ...state,
-        sections: state.sections.filter((section) => section.id !== action.payload),
-      };
-    case 'UPDATE_SECTION':
-      return {
-        ...state,
-        sections: state.sections.map((section) =>
-          section.id === action.payload.id
-            ? { ...section, ...action.payload.updates }
-            : section
-        ),
-      };
-    default:
-      return state;
-  }
-};
-
 export const SectionProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(sectionReducer, initialState);
+  // Queries - automatically update when data changes
+  const sections = useQuery(api.sections.list) ?? [];
+  const isLoading = sections === undefined;
 
-  const addSection = (section) => {
-    dispatch({
-      type: 'ADD_SECTION',
-      payload: {
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        ...section,
-      },
+  // Mutations
+  const createSection = useMutation(api.sections.create);
+  const updateSectionMutation = useMutation(api.sections.update);
+  const deleteSectionMutation = useMutation(api.sections.remove);
+
+  const addSection = async (section) => {
+    await createSection({
+      name: section.name,
+      color: section.color,
     });
   };
 
-  const deleteSection = (sectionId) => {
-    dispatch({ type: 'DELETE_SECTION', payload: sectionId });
+  const deleteSection = async (sectionId) => {
+    await deleteSectionMutation({ id: sectionId });
   };
 
-  const updateSection = (sectionId, updates) => {
-    dispatch({ type: 'UPDATE_SECTION', payload: { id: sectionId, updates } });
+  const updateSection = async (sectionId, updates) => {
+    await updateSectionMutation({ id: sectionId, ...updates });
   };
 
-  const getSectionById = (sectionId) => {
-    return state.sections.find((section) => section.id === sectionId);
-  };
+  const getSectionById = useCallback(
+    (sectionId) => {
+      return sections.find((section) => section._id === sectionId);
+    },
+    [sections]
+  );
 
   return (
     <SectionContext.Provider
       value={{
-        sections: state.sections,
+        sections,
+        isLoading,
         addSection,
         deleteSection,
         updateSection,

@@ -16,7 +16,7 @@ const TaskDetailScreen = ({ route, navigation }) => {
   const { taskId } = route.params;
   const { tasks, toggleTask, deleteTask, updateTask } = useTasks();
 
-  const task = tasks.find((t) => t.id === taskId);
+  const task = tasks.find((t) => t._id === taskId);
 
   if (!task) {
     return (

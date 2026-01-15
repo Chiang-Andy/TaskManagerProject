@@ -39,7 +39,7 @@ const SectionsScreen = ({ navigation }) => {
   const handleSave = () => {
     if (name.trim()) {
       if (editingSection) {
-        updateSection(editingSection.id, {
+        updateSection(editingSection._id, {
           name: name.trim(),
           color,
         });
@@ -69,7 +69,7 @@ const SectionsScreen = ({ navigation }) => {
         <Text style={styles.sectionName}>{item.name}</Text>
         <TouchableOpacity
           style={styles.deleteButton}
-          onPress={() => handleDelete(item.id)}
+          onPress={() => handleDelete(item._id)}
         >
           <Text style={styles.deleteText}>×</Text>
         </TouchableOpacity>
@@ -98,7 +98,7 @@ const SectionsScreen = ({ navigation }) => {
         <FlatList
           data={sections}
           renderItem={renderSection}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
         />
       )}

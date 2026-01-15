@@ -35,16 +35,16 @@ const SectionSelector = ({ selected, onSelect, label, onManageSections }) => {
 
         {sections.map((section) => {
           const colorData = getColorByKey(section.color);
-          const isSelected = selected === section.id;
+          const isSelected = selected === section._id;
           return (
             <TouchableOpacity
-              key={section.id}
+              key={section._id}
               style={[
                 styles.option,
                 { borderColor: colorData.color },
                 isSelected && { backgroundColor: colorData.color },
               ]}
-              onPress={() => onSelect(section.id)}
+              onPress={() => onSelect(section._id)}
               activeOpacity={0.7}
             >
               <View

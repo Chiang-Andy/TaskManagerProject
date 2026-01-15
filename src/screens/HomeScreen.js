@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
+import { useUser, useClerk } from '@clerk/clerk-expo';
 import { useTasks } from '../context/TaskContext';
 import { useSections } from '../context/SectionContext';
 import { TaskItem, EmptyState } from '../components';
@@ -15,9 +17,29 @@ import { Colors } from '../constants/colors';
 import { getColorByKey } from '../constants/sectionColors';
 
 const HomeScreen = ({ navigation }) => {
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const { tasks, toggleTask, deleteTask } = useTasks();
   const { sections, getSectionById } = useSections();
   const [selectedSectionId, setSelectedSectionId] = useState(null);
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
+      ]
+    );
+  };
+
+  const getUserInitial = () => {
+    if (user?.primaryEmailAddress?.emailAddress) {
+      return user.primaryEmailAddress.emailAddress.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
 
   const filteredTasks = selectedSectionId
     ? tasks.filter((task) => task.sectionId === selectedSectionId)
@@ -30,9 +52,9 @@ const HomeScreen = ({ navigation }) => {
     <TaskItem
       task={item}
       section={item.sectionId ? getSectionById(item.sectionId) : null}
-      onToggle={() => toggleTask(item.id)}
-      onDelete={() => deleteTask(item.id)}
-      onPress={() => navigation.navigate('TaskDetail', { taskId: item.id })}
+      onToggle={() => toggleTask(item._id)}
+      onDelete={() => deleteTask(item._id)}
+      onPress={() => navigation.navigate('TaskDetail', { taskId: item._id })}
     />
   );
 
@@ -50,12 +72,20 @@ const HomeScreen = ({ navigation }) => {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>My Tasks</Text>
-          <TouchableOpacity
-            style={styles.sectionsButton}
-            onPress={() => navigation.navigate('Sections')}
-          >
-            <Text style={styles.sectionsButtonText}>Files</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.sectionsButton}
+              onPress={() => navigation.navigate('Sections')}
+            >
+              <Text style={styles.sectionsButtonText}>Files</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.userButton}
+              onPress={handleSignOut}
+            >
+              <Text style={styles.userButtonText}>{getUserInitial()}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.subtitle}>
           {pendingTasks.length} pending, {completedTasks.length} completed
@@ -87,16 +117,16 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
           {sections.map((section) => {
             const colorData = getColorByKey(section.color);
-            const isSelected = selectedSectionId === section.id;
+            const isSelected = selectedSectionId === section._id;
             return (
               <TouchableOpacity
-                key={section.id}
+                key={section._id}
                 style={[
                   styles.filterChip,
                   { borderColor: colorData.color },
                   isSelected && { backgroundColor: colorData.color },
                 ]}
-                onPress={() => setSelectedSectionId(section.id)}
+                onPress={() => setSelectedSectionId(section._id)}
               >
                 <View
                   style={[
@@ -128,7 +158,7 @@ const HomeScreen = ({ navigation }) => {
         <FlatList
           data={[...pendingTasks, ...completedTasks]}
           renderItem={renderTask}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
@@ -170,6 +200,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionsButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -180,6 +215,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary,
+  },
+  userButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textLight,
   },
   subtitle: {
     fontSize: 14,

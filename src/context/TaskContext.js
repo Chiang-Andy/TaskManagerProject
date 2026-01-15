@@ -1,77 +1,48 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext } from 'react';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 const TaskContext = createContext();
 
-const initialState = {
-  tasks: [],
-};
-
-const taskReducer = (state, action) => {
-  switch (action.type) {
-    case 'ADD_TASK':
-      return {
-        ...state,
-        tasks: [...state.tasks, action.payload],
-      };
-    case 'DELETE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.filter((task) => task.id !== action.payload),
-      };
-    case 'TOGGLE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.map((task) =>
-          task.id === action.payload
-            ? { ...task, completed: !task.completed }
-            : task
-        ),
-      };
-    case 'UPDATE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.map((task) =>
-          task.id === action.payload.id
-            ? { ...task, ...action.payload.updates }
-            : task
-        ),
-      };
-    default:
-      return state;
-  }
-};
-
 export const TaskProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(taskReducer, initialState);
+  // Queries - automatically update when data changes
+  const tasks = useQuery(api.tasks.list) ?? [];
+  const isLoading = tasks === undefined;
 
-  const addTask = (task) => {
-    dispatch({
-      type: 'ADD_TASK',
-      payload: {
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
-        completed: false,
-        ...task,
-      },
+  // Mutations
+  const createTask = useMutation(api.tasks.create);
+  const updateTaskMutation = useMutation(api.tasks.update);
+  const toggleTaskMutation = useMutation(api.tasks.toggleComplete);
+  const deleteTaskMutation = useMutation(api.tasks.remove);
+
+  // Wrapper functions to maintain existing API
+  const addTask = async (task) => {
+    await createTask({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority || 'medium',
+      sectionId: task.sectionId || null,
+      dueDate: task.dueDate || null,
     });
   };
 
-  const deleteTask = (taskId) => {
-    dispatch({ type: 'DELETE_TASK', payload: taskId });
+  const deleteTask = async (taskId) => {
+    await deleteTaskMutation({ id: taskId });
   };
 
-  const toggleTask = (taskId) => {
-    dispatch({ type: 'TOGGLE_TASK', payload: taskId });
+  const toggleTask = async (taskId) => {
+    await toggleTaskMutation({ id: taskId });
   };
 
-  const updateTask = (taskId, updates) => {
-    dispatch({ type: 'UPDATE_TASK', payload: { id: taskId, updates } });
+  const updateTask = async (taskId, updates) => {
+    await updateTaskMutation({ id: taskId, ...updates });
   };
 
   return (
     <TaskContext.Provider
       value={{
-        tasks: state.tasks,
+        tasks,
+        isLoading,
         addTask,
         deleteTask,
         toggleTask,
