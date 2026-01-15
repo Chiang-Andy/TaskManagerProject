@@ -8,9 +8,9 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useTasks } from '../context/TaskContext';
-import { Button, PrioritySelector } from '../components';
+import { useSections } from '../context/SectionContext';
+import { Button, PrioritySelector, SectionSelector, DueDatePicker } from '../components';
 import { Colors } from '../constants/colors';
-import { Priorities } from '../constants/priorities';
 
 const TaskDetailScreen = ({ route, navigation }) => {
   const { taskId } = route.params;
@@ -84,6 +84,23 @@ const TaskDetailScreen = ({ route, navigation }) => {
             label="Priority"
             selected={task.priority || 'medium'}
             onSelect={(priority) => updateTask(taskId, { priority })}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <SectionSelector
+            label="File"
+            selected={task.sectionId}
+            onSelect={(sectionId) => updateTask(taskId, { sectionId })}
+            onManageSections={() => navigation.navigate('Sections')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <DueDatePicker
+            label="Due Date"
+            value={task.dueDate ? new Date(task.dueDate) : null}
+            onChange={(date) => updateTask(taskId, { dueDate: date ? date.toISOString() : null })}
           />
         </View>
 

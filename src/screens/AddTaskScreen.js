@@ -8,13 +8,15 @@ import {
   ScrollView,
 } from 'react-native';
 import { useTasks } from '../context/TaskContext';
-import { Input, Button, PrioritySelector } from '../components';
+import { Input, Button, PrioritySelector, SectionSelector, DueDatePicker } from '../components';
 import { Colors } from '../constants/colors';
 
 const AddTaskScreen = ({ navigation }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [sectionId, setSectionId] = useState(null);
+  const [dueDate, setDueDate] = useState(null);
   const { addTask } = useTasks();
 
   const handleAddTask = () => {
@@ -23,6 +25,8 @@ const AddTaskScreen = ({ navigation }) => {
         title: title.trim(),
         description: description.trim(),
         priority,
+        sectionId,
+        dueDate: dueDate ? dueDate.toISOString() : null,
       });
       navigation.goBack();
     }
@@ -59,6 +63,19 @@ const AddTaskScreen = ({ navigation }) => {
               label="Priority"
               selected={priority}
               onSelect={setPriority}
+            />
+
+            <SectionSelector
+              label="File"
+              selected={sectionId}
+              onSelect={setSectionId}
+              onManageSections={() => navigation.navigate('Sections')}
+            />
+
+            <DueDatePicker
+              label="Due Date (optional)"
+              value={dueDate}
+              onChange={setDueDate}
             />
           </View>
 

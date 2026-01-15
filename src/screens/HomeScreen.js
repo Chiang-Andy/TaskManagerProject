@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,20 +6,30 @@ import {
   FlatList,
   TouchableOpacity,
   SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import { useTasks } from '../context/TaskContext';
+import { useSections } from '../context/SectionContext';
 import { TaskItem, EmptyState } from '../components';
 import { Colors } from '../constants/colors';
+import { getColorByKey } from '../constants/sectionColors';
 
 const HomeScreen = ({ navigation }) => {
   const { tasks, toggleTask, deleteTask } = useTasks();
+  const { sections, getSectionById } = useSections();
+  const [selectedSectionId, setSelectedSectionId] = useState(null);
 
-  const pendingTasks = tasks.filter((task) => !task.completed);
-  const completedTasks = tasks.filter((task) => task.completed);
+  const filteredTasks = selectedSectionId
+    ? tasks.filter((task) => task.sectionId === selectedSectionId)
+    : tasks;
+
+  const pendingTasks = filteredTasks.filter((task) => !task.completed);
+  const completedTasks = filteredTasks.filter((task) => task.completed);
 
   const renderTask = ({ item }) => (
     <TaskItem
       task={item}
+      section={item.sectionId ? getSectionById(item.sectionId) : null}
       onToggle={() => toggleTask(item.id)}
       onDelete={() => deleteTask(item.id)}
       onPress={() => navigation.navigate('TaskDetail', { taskId: item.id })}
@@ -38,14 +48,82 @@ const HomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>My Tasks</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>My Tasks</Text>
+          <TouchableOpacity
+            style={styles.sectionsButton}
+            onPress={() => navigation.navigate('Sections')}
+          >
+            <Text style={styles.sectionsButtonText}>Files</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.subtitle}>
           {pendingTasks.length} pending, {completedTasks.length} completed
         </Text>
       </View>
 
-      {tasks.length === 0 ? (
-        <EmptyState />
+      {sections.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+          style={styles.filterScroll}
+        >
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              !selectedSectionId && styles.filterChipSelected,
+            ]}
+            onPress={() => setSelectedSectionId(null)}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                !selectedSectionId && styles.filterChipTextSelected,
+              ]}
+            >
+              All
+            </Text>
+          </TouchableOpacity>
+          {sections.map((section) => {
+            const colorData = getColorByKey(section.color);
+            const isSelected = selectedSectionId === section.id;
+            return (
+              <TouchableOpacity
+                key={section.id}
+                style={[
+                  styles.filterChip,
+                  { borderColor: colorData.color },
+                  isSelected && { backgroundColor: colorData.color },
+                ]}
+                onPress={() => setSelectedSectionId(section.id)}
+              >
+                <View
+                  style={[
+                    styles.filterDot,
+                    { backgroundColor: isSelected ? Colors.textLight : colorData.color },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: isSelected ? Colors.textLight : colorData.color },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {section.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {filteredTasks.length === 0 ? (
+        <EmptyState
+          message={selectedSectionId ? 'No tasks in this file' : 'No tasks yet'}
+          subtitle={selectedSectionId ? 'Add a task to this file' : 'Add a task to get started!'}
+        />
       ) : (
         <FlatList
           data={[...pendingTasks, ...completedTasks]}
@@ -79,18 +157,71 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: Colors.text,
+  },
+  sectionsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.primary + '15',
+  },
+  sectionsButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   subtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  filterScroll: {
+    maxHeight: 32,
+    marginBottom: 0,
+  },
+  filterContainer: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 4,
+  },
+  filterChipSelected: {
+    backgroundColor: Colors.text,
+    borderColor: Colors.text,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    maxWidth: 100,
+  },
+  filterChipTextSelected: {
+    color: Colors.textLight,
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   listContent: {
     paddingBottom: 100,
@@ -99,7 +230,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   sectionTitle: {
     fontSize: 14,
