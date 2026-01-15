@@ -10,17 +10,7 @@ async function getUserId(ctx: any): Promise<string> {
   return identity.subject;
 }
 
-// Get all sections for the authenticated user
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getUserId(ctx);
-    return await ctx.db
-      .query("sections")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-  },
-});
+
 
 // Get a single section by ID (with ownership check)
 export const getById = query({
