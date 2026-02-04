@@ -1,22 +1,31 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// Helper to get authenticated user ID
-async function getUserId(ctx: any): Promise<string> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Unauthenticated");
-  }
-  return identity.subject;
+// Default user ID for single-user mode (no authentication)
+const DEFAULT_USER_ID = "default-user";
+
+// Helper to get user ID (returns default for single-user mode)
+function getUserId(): string {
+  return DEFAULT_USER_ID;
 }
 
+// Get all sections for the user
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = getUserId();
+    return await ctx.db
+      .query("sections")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+  },
+});
 
-
-// Get a single section by ID (with ownership check)
+// Get a single section by ID
 export const getById = query({
   args: { id: v.id("sections") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const section = await ctx.db.get(args.id);
     if (!section || section.userId !== userId) {
       return null;
@@ -32,7 +41,7 @@ export const create = mutation({
     color: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     return await ctx.db.insert("sections", {
       ...args,
       userId,
@@ -41,7 +50,7 @@ export const create = mutation({
   },
 });
 
-// Update a section (with ownership check)
+// Update a section
 export const update = mutation({
   args: {
     id: v.id("sections"),
@@ -49,11 +58,11 @@ export const update = mutation({
     color: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const section = await ctx.db.get(args.id);
 
     if (!section || section.userId !== userId) {
-      throw new Error("Section not found or access denied");
+      throw new Error("Section not found");
     }
 
     const { id, ...updates } = args;
@@ -61,18 +70,18 @@ export const update = mutation({
   },
 });
 
-// Delete a section and unlink all tasks (with ownership check)
+// Delete a section and unlink all tasks
 export const remove = mutation({
   args: { id: v.id("sections") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const section = await ctx.db.get(args.id);
 
     if (!section || section.userId !== userId) {
-      throw new Error("Section not found or access denied");
+      throw new Error("Section not found");
     }
 
-    // Unlink all tasks from this section (only user's own tasks)
+    // Unlink all tasks from this section
     const tasksInSection = await ctx.db
       .query("tasks")
       .withIndex("by_user_and_section", (q) =>

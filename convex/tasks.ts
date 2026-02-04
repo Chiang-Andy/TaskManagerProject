@@ -1,20 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-// Helper to get authenticated user ID
-async function getUserId(ctx: any): Promise<string> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Unauthenticated");
-  }
-  return identity.subject;
+// Default user ID for single-user mode (no authentication)
+const DEFAULT_USER_ID = "default-user";
+
+// Helper to get user ID (returns default for single-user mode)
+function getUserId(): string {
+  return DEFAULT_USER_ID;
 }
 
-// Get all tasks for the authenticated user
+// Get all tasks for the user
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     return await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -22,11 +21,11 @@ export const list = query({
   },
 });
 
-// Get a single task by ID (with ownership check)
+// Get a single task by ID
 export const getById = query({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const task = await ctx.db.get(args.id);
     if (!task || task.userId !== userId) {
       return null;
@@ -45,9 +44,9 @@ export const create = mutation({
     dueDate: v.union(v.string(), v.null()),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
 
-    // Validate section ownership if sectionId is provided
+    // Validate section exists if sectionId is provided
     if (args.sectionId) {
       const section = await ctx.db.get(args.sectionId);
       if (!section || section.userId !== userId) {
@@ -64,7 +63,7 @@ export const create = mutation({
   },
 });
 
-// Update a task (with ownership check)
+// Update a task
 export const update = mutation({
   args: {
     id: v.id("tasks"),
@@ -76,14 +75,14 @@ export const update = mutation({
     completed: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const task = await ctx.db.get(args.id);
 
     if (!task || task.userId !== userId) {
-      throw new Error("Task not found or access denied");
+      throw new Error("Task not found");
     }
 
-    // Validate section ownership if changing section
+    // Validate section exists if changing section
     if (args.sectionId !== undefined && args.sectionId !== null) {
       const section = await ctx.db.get(args.sectionId);
       if (!section || section.userId !== userId) {
@@ -96,30 +95,30 @@ export const update = mutation({
   },
 });
 
-// Toggle task completion (with ownership check)
+// Toggle task completion
 export const toggleComplete = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const task = await ctx.db.get(args.id);
 
     if (!task || task.userId !== userId) {
-      throw new Error("Task not found or access denied");
+      throw new Error("Task not found");
     }
 
     return await ctx.db.patch(args.id, { completed: !task.completed });
   },
 });
 
-// Delete a task (with ownership check)
+// Delete a task
 export const remove = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    const userId = await getUserId(ctx);
+    const userId = getUserId();
     const task = await ctx.db.get(args.id);
 
     if (!task || task.userId !== userId) {
-      throw new Error("Task not found or access denied");
+      throw new Error("Task not found");
     }
 
     return await ctx.db.delete(args.id);

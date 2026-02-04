@@ -7,9 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Alert,
 } from 'react-native';
-import { useUser, useClerk } from '@clerk/clerk-expo';
 import { useTasks } from '../context/TaskContext';
 import { useSections } from '../context/SectionContext';
 import { TaskItem, EmptyState } from '../components';
@@ -17,29 +15,9 @@ import { Colors } from '../constants/colors';
 import { getColorByKey } from '../constants/sectionColors';
 
 const HomeScreen = ({ navigation }) => {
-  const { user } = useUser();
-  const { signOut } = useClerk();
   const { tasks, toggleTask, deleteTask } = useTasks();
   const { sections, getSectionById } = useSections();
   const [selectedSectionId, setSelectedSectionId] = useState(null);
-
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: () => signOut() },
-      ]
-    );
-  };
-
-  const getUserInitial = () => {
-    if (user?.primaryEmailAddress?.emailAddress) {
-      return user.primaryEmailAddress.emailAddress.charAt(0).toUpperCase();
-    }
-    return 'U';
-  };
 
   const filteredTasks = selectedSectionId
     ? tasks.filter((task) => task.sectionId === selectedSectionId)
@@ -78,12 +56,6 @@ const HomeScreen = ({ navigation }) => {
               onPress={() => navigation.navigate('Sections')}
             >
               <Text style={styles.sectionsButtonText}>Files</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.userButton}
-              onPress={handleSignOut}
-            >
-              <Text style={styles.userButtonText}>{getUserInitial()}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -215,19 +187,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.primary,
-  },
-  userButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textLight,
   },
   subtitle: {
     fontSize: 14,
