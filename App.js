@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { TaskProvider } from './src/context/TaskContext';
 import { SectionProvider } from './src/context/SectionContext';
-import { HomeScreen, AddTaskScreen, TaskDetailScreen, SectionsScreen } from './src/screens';
+import { HomeScreen, AddTaskScreen, TaskDetailScreen, SectionsScreen, CalendarScreen, HistoryScreen } from './src/screens';
 import { Colors } from './src/constants/colors';
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL);
@@ -42,6 +42,16 @@ function RootNavigator() {
         name="Sections"
         component={SectionsScreen}
         options={{ title: 'Manage Files', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="Calendar"
+        component={CalendarScreen}
+        options={{ title: 'Calendar' }}
+      />
+      <Stack.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{ title: 'Completed Tasks' }}
       />
     </Stack.Navigator>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,27 +23,119 @@ const HomeScreen = ({ navigation }) => {
     ? tasks.filter((task) => task.sectionId === selectedSectionId)
     : tasks;
 
-  const pendingTasks = filteredTasks.filter((task) => !task.completed);
   const completedTasks = filteredTasks.filter((task) => task.completed);
 
-  const renderTask = ({ item }) => (
+  // Categorize pending tasks by due date
+  const categorizedTasks = useMemo(() => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(today);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+    const upcoming7Days = new Date(today);
+    upcoming7Days.setDate(upcoming7Days.getDate() + 7);
+
+    const overdue = [];
+    const dueToday = [];
+    const upcoming = [];
+    const other = [];
+
+    filteredTasks
+      .filter((task) => !task.completed)
+      .forEach((task) => {
+        if (!task.dueDate) {
+          other.push(task);
+        } else {
+          const taskDate = new Date(task.dueDate);
+          if (taskDate < today) {
+            overdue.push(task);
+          } else if (taskDate >= today && taskDate < todayEnd) {
+            dueToday.push(task);
+          } else if (taskDate >= todayEnd && taskDate < upcoming7Days) {
+            upcoming.push(task);
+          } else {
+            other.push(task);
+          }
+        }
+      });
+
+    // Sort by due date
+    const sortByDueDate = (a, b) => {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    };
+    overdue.sort(sortByDueDate);
+    dueToday.sort(sortByDueDate);
+    upcoming.sort(sortByDueDate);
+    other.sort(sortByDueDate);
+
+    return { overdue, dueToday, upcoming, other };
+  }, [filteredTasks]);
+
+  const pendingCount =
+    categorizedTasks.overdue.length +
+    categorizedTasks.dueToday.length +
+    categorizedTasks.upcoming.length +
+    categorizedTasks.other.length;
+
+  const renderTask = (task) => (
     <TaskItem
-      task={item}
-      section={item.sectionId ? getSectionById(item.sectionId) : null}
-      onToggle={() => toggleTask(item._id)}
-      onDelete={() => deleteTask(item._id)}
-      onPress={() => navigation.navigate('TaskDetail', { taskId: item._id })}
+      key={task._id}
+      task={task}
+      section={task.sectionId ? getSectionById(task.sectionId) : null}
+      onToggle={() => toggleTask(task._id)}
+      onDelete={() => deleteTask(task._id)}
+      onPress={() => navigation.navigate('TaskDetail', { taskId: task._id })}
     />
   );
 
-  const renderSectionHeader = (title, count) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{count}</Text>
+  const renderSectionHeader = (title, count, color = Colors.primary) => (
+    <View style={styles.sectionHeader} key={`header-${title}`}>
+      <Text style={[styles.sectionTitle, { color }]}>{title}</Text>
+      <View style={[styles.badge, { backgroundColor: color + '20' }]}>
+        <Text style={[styles.badgeText, { color }]}>{count}</Text>
       </View>
     </View>
   );
+
+  // Build the list data with headers and tasks
+  const listData = useMemo(() => {
+    const data = [];
+
+    if (categorizedTasks.overdue.length > 0) {
+      data.push({ type: 'header', title: 'Overdue', count: categorizedTasks.overdue.length, color: Colors.error });
+      categorizedTasks.overdue.forEach((task) => data.push({ type: 'task', task }));
+    }
+
+    if (categorizedTasks.dueToday.length > 0) {
+      data.push({ type: 'header', title: 'Today', count: categorizedTasks.dueToday.length, color: Colors.primary });
+      categorizedTasks.dueToday.forEach((task) => data.push({ type: 'task', task }));
+    }
+
+    if (categorizedTasks.upcoming.length > 0) {
+      data.push({ type: 'header', title: 'Upcoming', count: categorizedTasks.upcoming.length, color: Colors.success });
+      categorizedTasks.upcoming.forEach((task) => data.push({ type: 'task', task }));
+    }
+
+    if (categorizedTasks.other.length > 0) {
+      data.push({ type: 'header', title: 'Other', count: categorizedTasks.other.length, color: Colors.textSecondary });
+      categorizedTasks.other.forEach((task) => data.push({ type: 'task', task }));
+    }
+
+    if (completedTasks.length > 0) {
+      data.push({ type: 'header', title: 'Completed', count: completedTasks.length, color: Colors.textSecondary });
+      completedTasks.forEach((task) => data.push({ type: 'task', task }));
+    }
+
+    return data;
+  }, [categorizedTasks, completedTasks]);
+
+  const renderItem = ({ item }) => {
+    if (item.type === 'header') {
+      return renderSectionHeader(item.title, item.count, item.color);
+    }
+    return renderTask(item.task);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -51,6 +143,18 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.titleRow}>
           <Text style={styles.title}>My Tasks</Text>
           <View style={styles.headerButtons}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Calendar')}
+            >
+              <Text style={styles.iconButtonText}>📅</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('History')}
+            >
+              <Text style={styles.iconButtonText}>✓</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.sectionsButton}
               onPress={() => navigation.navigate('Sections')}
@@ -60,7 +164,7 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </View>
         <Text style={styles.subtitle}>
-          {pendingTasks.length} pending, {completedTasks.length} completed
+          {pendingCount} pending, {completedTasks.length} completed
         </Text>
       </View>
 
@@ -121,23 +225,20 @@ const HomeScreen = ({ navigation }) => {
         </ScrollView>
       )}
 
-      {filteredTasks.length === 0 ? (
+      {listData.length === 0 ? (
         <EmptyState
           message={selectedSectionId ? 'No tasks in this file' : 'No tasks yet'}
           subtitle={selectedSectionId ? 'Add a task to this file' : 'Add a task to get started!'}
         />
       ) : (
         <FlatList
-          data={[...pendingTasks, ...completedTasks]}
-          renderItem={renderTask}
-          keyExtractor={(item) => item._id}
+          data={listData}
+          renderItem={renderItem}
+          keyExtractor={(item, index) =>
+            item.type === 'header' ? `header-${item.title}` : item.task._id
+          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          ListHeaderComponent={
-            pendingTasks.length > 0
-              ? renderSectionHeader('Pending', pendingTasks.length)
-              : null
-          }
         />
       )}
 
@@ -176,6 +277,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonText: {
+    fontSize: 16,
   },
   sectionsButton: {
     paddingHorizontal: 12,
@@ -237,18 +349,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 2,
+    paddingTop: 12,
     paddingBottom: 4,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   badge: {
-    backgroundColor: Colors.primary + '20',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -257,7 +367,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.primary,
   },
   fab: {
     position: 'absolute',

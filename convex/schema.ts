@@ -8,6 +8,7 @@ export default defineSchema({
     description: v.string(),
     priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
     completed: v.boolean(),
+    completedAt: v.optional(v.union(v.string(), v.null())),
     sectionId: v.union(v.id("sections"), v.null()),
     dueDate: v.union(v.string(), v.null()),
     createdAt: v.string(),

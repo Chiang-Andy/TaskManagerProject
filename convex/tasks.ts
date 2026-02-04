@@ -106,7 +106,11 @@ export const toggleComplete = mutation({
       throw new Error("Task not found");
     }
 
-    return await ctx.db.patch(args.id, { completed: !task.completed });
+    const newCompleted = !task.completed;
+    return await ctx.db.patch(args.id, {
+      completed: newCompleted,
+      completedAt: newCompleted ? new Date().toISOString() : null,
+    });
   },
 });
 
