@@ -9,15 +9,31 @@ function getUserId(): string {
   return DEFAULT_USER_ID;
 }
 
-// Get all tasks for the user
+// Get all active (non-deleted) tasks for the user
 export const list = query({
   args: {},
   handler: async (ctx) => {
     const userId = getUserId();
-    return await ctx.db
+    const tasks = await ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
+    // Filter out soft-deleted tasks
+    return tasks.filter((task) => !task.deletedAt);
+  },
+});
+
+// Get all deleted tasks for the user (for trash screen)
+export const listDeleted = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = getUserId();
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    // Only return soft-deleted tasks
+    return tasks.filter((task) => task.deletedAt);
   },
 });
 
@@ -114,7 +130,7 @@ export const toggleComplete = mutation({
   },
 });
 
-// Delete a task
+// Soft delete a task (moves to trash)
 export const remove = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
@@ -125,6 +141,62 @@ export const remove = mutation({
       throw new Error("Task not found");
     }
 
+    // Soft delete by setting deletedAt timestamp
+    return await ctx.db.patch(args.id, {
+      deletedAt: new Date().toISOString(),
+    });
+  },
+});
+
+// Restore a soft-deleted task
+export const restore = mutation({
+  args: { id: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const userId = getUserId();
+    const task = await ctx.db.get(args.id);
+
+    if (!task || task.userId !== userId) {
+      throw new Error("Task not found");
+    }
+
+    // Clear deletedAt to restore the task
+    return await ctx.db.patch(args.id, {
+      deletedAt: null,
+    });
+  },
+});
+
+// Permanently delete a task
+export const permanentDelete = mutation({
+  args: { id: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const userId = getUserId();
+    const task = await ctx.db.get(args.id);
+
+    if (!task || task.userId !== userId) {
+      throw new Error("Task not found");
+    }
+
     return await ctx.db.delete(args.id);
+  },
+});
+
+// Empty trash (permanently delete all soft-deleted tasks)
+export const emptyTrash = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = getUserId();
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const deletedTasks = tasks.filter((task) => task.deletedAt);
+
+    for (const task of deletedTasks) {
+      await ctx.db.delete(task._id);
+    }
+
+    return { deleted: deletedTasks.length };
   },
 });

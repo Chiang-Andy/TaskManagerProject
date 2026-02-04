@@ -10,23 +10,69 @@ import {
 } from 'react-native';
 import { useTasks } from '../context/TaskContext';
 import { useSections } from '../context/SectionContext';
-import { TaskItem, EmptyState } from '../components';
+import { TaskItem, EmptyState, FilterModal } from '../components';
 import { Colors } from '../constants/colors';
 import { getColorByKey } from '../constants/sectionColors';
+
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 const HomeScreen = ({ navigation }) => {
   const { tasks, toggleTask, deleteTask } = useTasks();
   const { sections, getSectionById } = useSections();
   const [selectedSectionId, setSelectedSectionId] = useState(null);
 
-  const filteredTasks = selectedSectionId
+  // Filter & Sort state
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [sortBy, setSortBy] = useState('dueDate');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [hideCompleted, setHideCompleted] = useState(false);
+
+  // Check if any filters are active
+  const hasActiveFilters = sortBy !== 'dueDate' || filterPriority !== 'all' || hideCompleted;
+
+  // Apply section filter
+  const sectionFilteredTasks = selectedSectionId
     ? tasks.filter((task) => task.sectionId === selectedSectionId)
     : tasks;
 
-  const completedTasks = filteredTasks.filter((task) => task.completed);
+  // Apply priority filter
+  const priorityFilteredTasks = filterPriority === 'all'
+    ? sectionFilteredTasks
+    : sectionFilteredTasks.filter((task) => task.priority === filterPriority);
 
-  // Categorize pending tasks by due date
+  // Split into pending and completed
+  const pendingTasks = priorityFilteredTasks.filter((task) => !task.completed);
+  const completedTasks = hideCompleted
+    ? []
+    : priorityFilteredTasks.filter((task) => task.completed);
+
+  // Sort function based on sortBy
+  const sortTasks = (tasksToSort) => {
+    return [...tasksToSort].sort((a, b) => {
+      switch (sortBy) {
+        case 'priority':
+          return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+        case 'createdAt':
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        case 'alphabetical':
+          return a.title.localeCompare(b.title);
+        case 'dueDate':
+        default:
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return new Date(a.dueDate) - new Date(b.dueDate);
+      }
+    });
+  };
+
+  // Categorize pending tasks by due date (only when sorting by dueDate)
   const categorizedTasks = useMemo(() => {
+    if (sortBy !== 'dueDate') {
+      // When not sorting by due date, just return all pending tasks sorted
+      return { all: sortTasks(pendingTasks) };
+    }
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(today);
@@ -39,26 +85,24 @@ const HomeScreen = ({ navigation }) => {
     const upcoming = [];
     const other = [];
 
-    filteredTasks
-      .filter((task) => !task.completed)
-      .forEach((task) => {
-        if (!task.dueDate) {
-          other.push(task);
+    pendingTasks.forEach((task) => {
+      if (!task.dueDate) {
+        other.push(task);
+      } else {
+        const taskDate = new Date(task.dueDate);
+        if (taskDate < today) {
+          overdue.push(task);
+        } else if (taskDate >= today && taskDate < todayEnd) {
+          dueToday.push(task);
+        } else if (taskDate >= todayEnd && taskDate < upcoming7Days) {
+          upcoming.push(task);
         } else {
-          const taskDate = new Date(task.dueDate);
-          if (taskDate < today) {
-            overdue.push(task);
-          } else if (taskDate >= today && taskDate < todayEnd) {
-            dueToday.push(task);
-          } else if (taskDate >= todayEnd && taskDate < upcoming7Days) {
-            upcoming.push(task);
-          } else {
-            other.push(task);
-          }
+          other.push(task);
         }
-      });
+      }
+    });
 
-    // Sort by due date
+    // Sort each category by due date
     const sortByDueDate = (a, b) => {
       if (!a.dueDate) return 1;
       if (!b.dueDate) return -1;
@@ -70,13 +114,9 @@ const HomeScreen = ({ navigation }) => {
     other.sort(sortByDueDate);
 
     return { overdue, dueToday, upcoming, other };
-  }, [filteredTasks]);
+  }, [pendingTasks, sortBy]);
 
-  const pendingCount =
-    categorizedTasks.overdue.length +
-    categorizedTasks.dueToday.length +
-    categorizedTasks.upcoming.length +
-    categorizedTasks.other.length;
+  const pendingCount = pendingTasks.length;
 
   const renderTask = (task) => (
     <TaskItem
@@ -102,33 +142,47 @@ const HomeScreen = ({ navigation }) => {
   const listData = useMemo(() => {
     const data = [];
 
-    if (categorizedTasks.overdue.length > 0) {
-      data.push({ type: 'header', title: 'Overdue', count: categorizedTasks.overdue.length, color: Colors.error });
-      categorizedTasks.overdue.forEach((task) => data.push({ type: 'task', task }));
-    }
+    if (sortBy === 'dueDate') {
+      // Show categorized by due date
+      if (categorizedTasks.overdue?.length > 0) {
+        data.push({ type: 'header', title: 'Overdue', count: categorizedTasks.overdue.length, color: Colors.error });
+        categorizedTasks.overdue.forEach((task) => data.push({ type: 'task', task }));
+      }
 
-    if (categorizedTasks.dueToday.length > 0) {
-      data.push({ type: 'header', title: 'Today', count: categorizedTasks.dueToday.length, color: Colors.primary });
-      categorizedTasks.dueToday.forEach((task) => data.push({ type: 'task', task }));
-    }
+      if (categorizedTasks.dueToday?.length > 0) {
+        data.push({ type: 'header', title: 'Today', count: categorizedTasks.dueToday.length, color: Colors.primary });
+        categorizedTasks.dueToday.forEach((task) => data.push({ type: 'task', task }));
+      }
 
-    if (categorizedTasks.upcoming.length > 0) {
-      data.push({ type: 'header', title: 'Upcoming', count: categorizedTasks.upcoming.length, color: Colors.success });
-      categorizedTasks.upcoming.forEach((task) => data.push({ type: 'task', task }));
-    }
+      if (categorizedTasks.upcoming?.length > 0) {
+        data.push({ type: 'header', title: 'Upcoming', count: categorizedTasks.upcoming.length, color: Colors.success });
+        categorizedTasks.upcoming.forEach((task) => data.push({ type: 'task', task }));
+      }
 
-    if (categorizedTasks.other.length > 0) {
-      data.push({ type: 'header', title: 'Other', count: categorizedTasks.other.length, color: Colors.textSecondary });
-      categorizedTasks.other.forEach((task) => data.push({ type: 'task', task }));
+      if (categorizedTasks.other?.length > 0) {
+        data.push({ type: 'header', title: 'Other', count: categorizedTasks.other.length, color: Colors.textSecondary });
+        categorizedTasks.other.forEach((task) => data.push({ type: 'task', task }));
+      }
+    } else {
+      // Show all pending tasks with a single header
+      if (categorizedTasks.all?.length > 0) {
+        const sortLabel = {
+          priority: 'By Priority',
+          createdAt: 'By Created Date',
+          alphabetical: 'Alphabetical',
+        }[sortBy];
+        data.push({ type: 'header', title: `Pending (${sortLabel})`, count: categorizedTasks.all.length, color: Colors.primary });
+        categorizedTasks.all.forEach((task) => data.push({ type: 'task', task }));
+      }
     }
 
     if (completedTasks.length > 0) {
       data.push({ type: 'header', title: 'Completed', count: completedTasks.length, color: Colors.textSecondary });
-      completedTasks.forEach((task) => data.push({ type: 'task', task }));
+      sortTasks(completedTasks).forEach((task) => data.push({ type: 'task', task }));
     }
 
     return data;
-  }, [categorizedTasks, completedTasks]);
+  }, [categorizedTasks, completedTasks, sortBy]);
 
   const renderItem = ({ item }) => {
     if (item.type === 'header') {
@@ -156,6 +210,12 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.iconButtonText}>✓</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Trash')}
+            >
+              <Text style={styles.iconButtonText}>🗑</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.sectionsButton}
               onPress={() => navigation.navigate('Sections')}
             >
@@ -165,6 +225,7 @@ const HomeScreen = ({ navigation }) => {
         </View>
         <Text style={styles.subtitle}>
           {pendingCount} pending, {completedTasks.length} completed
+          {hasActiveFilters && ' (filtered)'}
         </Text>
       </View>
 
@@ -227,8 +288,8 @@ const HomeScreen = ({ navigation }) => {
 
       {listData.length === 0 ? (
         <EmptyState
-          message={selectedSectionId ? 'No tasks in this file' : 'No tasks yet'}
-          subtitle={selectedSectionId ? 'Add a task to this file' : 'Add a task to get started!'}
+          message={selectedSectionId ? 'No tasks in this file' : hasActiveFilters ? 'No tasks match filters' : 'No tasks yet'}
+          subtitle={selectedSectionId ? 'Add a task to this file' : hasActiveFilters ? 'Try adjusting your filters' : 'Add a task to get started!'}
         />
       ) : (
         <FlatList
@@ -243,12 +304,31 @@ const HomeScreen = ({ navigation }) => {
       )}
 
       <TouchableOpacity
+        style={[styles.settingsButton, hasActiveFilters && styles.settingsButtonActive]}
+        onPress={() => setShowFilterModal(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.settingsButtonText}>⚙</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('AddTask')}
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
+
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        filterPriority={filterPriority}
+        setFilterPriority={setFilterPriority}
+        hideCompleted={hideCompleted}
+        setHideCompleted={setHideCompleted}
+      />
     </SafeAreaView>
   );
 };
@@ -285,6 +365,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary + '15',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconButtonActive: {
+    backgroundColor: Colors.primary,
   },
   iconButtonText: {
     fontSize: 16,
@@ -367,6 +450,31 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  settingsButton: {
+    position: 'absolute',
+    left: 20,
+    bottom: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  settingsButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  settingsButtonText: {
+    fontSize: 22,
   },
   fab: {
     position: 'absolute',

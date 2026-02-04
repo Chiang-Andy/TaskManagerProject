@@ -4,3 +4,4 @@ export { default as TaskDetailScreen } from './TaskDetailScreen';
 export { default as SectionsScreen } from './SectionsScreen';
 export { default as CalendarScreen } from './CalendarScreen';
 export { default as HistoryScreen } from './HistoryScreen';
+export { default as TrashScreen } from './TrashScreen';

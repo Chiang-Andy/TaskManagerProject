@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { useTasks } from '../context/TaskContext';
 import { useSections } from '../context/SectionContext';
@@ -18,6 +19,18 @@ const TaskDetailScreen = ({ route, navigation }) => {
 
   const task = tasks.find((t) => t._id === taskId);
 
+  // Local state for editing
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+
+  // Sync local state with task data
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || '');
+    }
+  }, [task]);
+
   if (!task) {
     return (
       <SafeAreaView style={styles.container}>
@@ -28,6 +41,28 @@ const TaskDetailScreen = ({ route, navigation }) => {
       </SafeAreaView>
     );
   }
+
+  const handleTitleChange = (text) => {
+    setTitle(text);
+  };
+
+  const handleTitleBlur = () => {
+    if (title.trim() && title !== task.title) {
+      updateTask(taskId, { title: title.trim() });
+    } else if (!title.trim()) {
+      setTitle(task.title); // Reset if empty
+    }
+  };
+
+  const handleDescriptionChange = (text) => {
+    setDescription(text);
+  };
+
+  const handleDescriptionBlur = () => {
+    if (description !== task.description) {
+      updateTask(taskId, { description });
+    }
+  };
 
   const handleDelete = () => {
     deleteTask(taskId);
@@ -68,16 +103,30 @@ const TaskDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.title, task.completed && styles.titleCompleted]}>
-          {task.title}
-        </Text>
+        <TextInput
+          style={[styles.titleInput, task.completed && styles.titleCompleted]}
+          value={title}
+          onChangeText={handleTitleChange}
+          onBlur={handleTitleBlur}
+          placeholder="Task title"
+          placeholderTextColor={Colors.textSecondary}
+          multiline
+        />
 
-        {task.description ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Description</Text>
-            <Text style={styles.description}>{task.description}</Text>
-          </View>
-        ) : null}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Description</Text>
+          <TextInput
+            style={styles.descriptionInput}
+            value={description}
+            onChangeText={handleDescriptionChange}
+            onBlur={handleDescriptionBlur}
+            placeholder="Add a description..."
+            placeholderTextColor={Colors.textSecondary}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+        </View>
 
         <View style={styles.section}>
           <PrioritySelector
@@ -166,11 +215,12 @@ const styles = StyleSheet.create({
   statusTextCompleted: {
     color: Colors.success,
   },
-  title: {
+  titleInput: {
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.text,
     marginBottom: 24,
+    padding: 0,
   },
   titleCompleted: {
     textDecorationLine: 'line-through',
@@ -190,10 +240,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
   },
-  description: {
+  descriptionInput: {
     fontSize: 16,
     color: Colors.text,
     lineHeight: 24,
+    minHeight: 80,
+    padding: 0,
   },
   dateText: {
     fontSize: 14,

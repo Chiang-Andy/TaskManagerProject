@@ -6,3 +6,4 @@ export { default as PrioritySelector } from './PrioritySelector';
 export { default as SectionSelector } from './SectionSelector';
 export { default as ColorPicker } from './ColorPicker';
 export { default as DueDatePicker } from './DueDatePicker';
+export { default as FilterModal } from './FilterModal';

@@ -2,10 +2,11 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { TaskProvider } from './src/context/TaskContext';
 import { SectionProvider } from './src/context/SectionContext';
-import { HomeScreen, AddTaskScreen, TaskDetailScreen, SectionsScreen, CalendarScreen, HistoryScreen } from './src/screens';
+import { HomeScreen, AddTaskScreen, TaskDetailScreen, SectionsScreen, CalendarScreen, HistoryScreen, TrashScreen } from './src/screens';
 import { Colors } from './src/constants/colors';
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL);
@@ -53,21 +54,28 @@ function RootNavigator() {
         component={HistoryScreen}
         options={{ title: 'Completed Tasks' }}
       />
+      <Stack.Screen
+        name="Trash"
+        component={TrashScreen}
+        options={{ title: 'Trash' }}
+      />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
   return (
-    <ConvexProvider client={convex}>
-      <SectionProvider>
-        <TaskProvider>
-          <NavigationContainer>
-            <StatusBar style="dark" />
-            <RootNavigator />
-          </NavigationContainer>
-        </TaskProvider>
-      </SectionProvider>
-    </ConvexProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ConvexProvider client={convex}>
+        <SectionProvider>
+          <TaskProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
+              <RootNavigator />
+            </NavigationContainer>
+          </TaskProvider>
+        </SectionProvider>
+      </ConvexProvider>
+    </GestureHandlerRootView>
   );
 }

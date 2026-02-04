@@ -7,6 +7,7 @@ const TaskContext = createContext();
 export const TaskProvider = ({ children }) => {
   // Queries - automatically update when data changes
   const tasks = useQuery(api.tasks.list) ?? [];
+  const deletedTasks = useQuery(api.tasks.listDeleted) ?? [];
   const isLoading = tasks === undefined;
 
   // Mutations
@@ -14,6 +15,9 @@ export const TaskProvider = ({ children }) => {
   const updateTaskMutation = useMutation(api.tasks.update);
   const toggleTaskMutation = useMutation(api.tasks.toggleComplete);
   const deleteTaskMutation = useMutation(api.tasks.remove);
+  const restoreTaskMutation = useMutation(api.tasks.restore);
+  const permanentDeleteMutation = useMutation(api.tasks.permanentDelete);
+  const emptyTrashMutation = useMutation(api.tasks.emptyTrash);
 
   // Wrapper functions to maintain existing API
   const addTask = async (task) => {
@@ -38,15 +42,31 @@ export const TaskProvider = ({ children }) => {
     await updateTaskMutation({ id: taskId, ...updates });
   };
 
+  const restoreTask = async (taskId) => {
+    await restoreTaskMutation({ id: taskId });
+  };
+
+  const permanentDeleteTask = async (taskId) => {
+    await permanentDeleteMutation({ id: taskId });
+  };
+
+  const emptyTrash = async () => {
+    await emptyTrashMutation();
+  };
+
   return (
     <TaskContext.Provider
       value={{
         tasks,
+        deletedTasks,
         isLoading,
         addTask,
         deleteTask,
         toggleTask,
         updateTask,
+        restoreTask,
+        permanentDeleteTask,
+        emptyTrash,
       }}
     >
       {children}
